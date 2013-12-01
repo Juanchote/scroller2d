@@ -1,6 +1,7 @@
 package es.sorikaStudio.scroller2d.controller;
 
 import java.util.ArrayList;
+import java.util.TreeMap;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
@@ -30,7 +31,10 @@ import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
 
 import es.sorikaStudio.scroller2d.Bullet;
+import es.sorikaStudio.scroller2d.CategoryAnimations;
 import es.sorikaStudio.scroller2d.CategoryGroup;
+import es.sorikaStudio.scroller2d.Scroller2d;
+import es.sorikaStudio.scroller2d.Factory.Pair;
  
 /**
  * Controller for Main Character, controlling movement, rigidbody and all
@@ -51,7 +55,8 @@ public class CharacterController extends InputAdapter {
     
     private Animation idleAnimationRight;
     private Animation idleAnimationLeft;
-    private Texture walkSheet;              
+    private Texture walkSheet;      
+    private TreeMap<Integer, Animation> animations;
     private TextureRegion[] idleFramesRight;    
     private TextureRegion[] idleFramesLeft;             
 
@@ -103,17 +108,16 @@ public class CharacterController extends InputAdapter {
 	    camera = CameraController.getInstance().getCamera();
 	    lastState = facingRight;
 	    
+	    animations = new TreeMap<Integer, Animation>();
+	    
 	    sprite = new Rectangle();
 	    srcSprite = new Rectangle();
 	    
-	    //tmp = new Texture(Gdx.files.internal("data/Animations/Player/Idle/player_idle_1.png"));        
-	    //sprite1 = new Sprite(tmp);
-	    
-	    //texture = new TextureRegion(tmp);
 	    bullets = new ArrayList<Bullet>();
 	    
 	    walkSheet = new Texture(Gdx.files.internal("data/Animations/Player/Idle/player_idle.png")); 
 	    
+	    /*
 	    TextureRegion[][] tmp = TextureRegion.split(walkSheet, walkSheet.getWidth() / 
 	            8, walkSheet.getHeight() / FRAME_COLS);
 	    idleFramesRight = new TextureRegion[FRAME_ROWS * FRAME_COLS];
@@ -133,7 +137,54 @@ public class CharacterController extends InputAdapter {
 	    }
 	    
 	    idleAnimationRight = new Animation(0.15f, idleFramesRight);
-	    idleAnimationLeft = new Animation(0.15f, idleFramesLeft);
+	    //idleAnimationLeft = new Animation(0.15f, idleFramesLeft);
+	    */
+	    
+	    TreeMap<Integer,Pair<Integer,Integer>> FRAME_ROWS;
+	    FRAME_ROWS = new TreeMap<Integer,Pair<Integer,Integer>>();
+	    Pair par = new Pair(0,5);
+	    FRAME_ROWS.put(CategoryAnimations.IDLE_RIGHT, par);
+	    
+	    TextureRegion[][] tmp = TextureRegion.split(walkSheet, walkSheet.getWidth() / 
+	            8, walkSheet.getHeight() / FRAME_COLS);
+	    
+	    int index = 0;
+	    CategoryAnimations.initIterator();
+	    Pair pair;
+	    do{
+	    	//checks for an empty category.
+	    	do{
+	    		index = CategoryAnimations.currentIndex();
+	    		pair = FRAME_ROWS.get(index);
+	    	}while((pair == null)&&(index != CategoryAnimations.EOF));
+	    	
+	    	if(index != CategoryAnimations.EOF) {
+		    	int FRAME_POS = (int) pair.getFirst(); //Row of the texturesheet
+		    	int FRAME_ROW = (int) pair.getSecond(); // Number of sprites inside the Row
+		    	
+		    	TextureRegion[] textureRegion = new TextureRegion[FRAME_ROW];
+		    	
+		    	//Populates the textureRegion from the Texture split.
+			    int ind = 0;
+	        	for (int j = 0; j < FRAME_ROW; j++) {
+	                textureRegion[ind] = tmp[FRAME_POS][j];
+	                ind++;
+	        	}
+	        	
+	        	//inserts the animation with the index.
+	        	animations.put(index, new Animation(0.15f,textureRegion));
+	        	
+	        	TextureRegion[] textureFlip = new TextureRegion[FRAME_ROW];
+	        	for(int i = 0; i < textureRegion.length; i++) {
+	        		textureFlip[i] = new TextureRegion(textureRegion[i]);
+	        		textureFlip[i].flip(true, false);
+	        	}
+	
+	        	animations.put(CategoryAnimations.currentIndex(), new Animation(0.15f,textureFlip));
+	    	}
+	    }while(index != CategoryAnimations.EOF);
+	    
+
 	    stateTime = 0f; 
 	            
 	    Gdx.input.setInputProcessor(this);
@@ -170,17 +221,20 @@ public class CharacterController extends InputAdapter {
      * Sets the Initial values needed for the correct working of the controller
      * @param position the initial position for the character
      */
-    public void initController(boolean debug, Vector2 position, OrthographicCamera camera, float unitScale, Vector2 RESPAWN) {
+    public void initController(boolean debug, Vector2 position, OrthographicCamera camera, Vector2 RESPAWN) {
             this.position = position;
-            this.unitScale  = unitScale;
+            this.unitScale  = Scroller2d.getScale();
             this.RESPAWN  = RESPAWN;
             this.debugMode = debug;
             this.attackDelta = 0.5f;
             
             sprite.x = position.x;
             sprite.y = position.y;
-            sprite.height = ((2 *idleAnimationRight.getKeyFrame(0).getRegionHeight()) - (1 / unitScale )) / unitScale;
-            sprite.width = ((2 *idleAnimationRight.getKeyFrame(0).getRegionWidth()) - (1 / unitScale )) / unitScale;
+            //sprite.height = ((2 *idleAnimationRight.getKeyFrame(0).getRegionHeight()) - (1 / unitScale )) / unitScale;
+            //sprite.width = ((2 *idleAnimationRight.getKeyFrame(0).getRegionWidth()) - (1 / unitScale )) / unitScale;
+            
+            sprite.height = ((2 * animations.get(CategoryAnimations.IDLE_RIGHT).getKeyFrame(0).getRegionHeight()) - (1 / unitScale )) / unitScale;
+            sprite.width = ((2 * animations.get(CategoryAnimations.IDLE_RIGHT).getKeyFrame(0).getRegionWidth()) - (1 / unitScale )) / unitScale;
 
             
             BodyDef bodyDef = new BodyDef();
@@ -238,12 +292,17 @@ public class CharacterController extends InputAdapter {
      */
     public void AnimationHandler(SpriteBatch batch, float deltaTime) {
         stateTime += deltaTime;              
-
+        
 	    if ( facingRight ) {
-	        currentFrame = idleAnimationRight.getKeyFrame(stateTime, true);
+	        //currentFrame = idleAnimationRight.getKeyFrame(stateTime, true);
+	    	currentFrame = animations.get(CategoryAnimations.IDLE_RIGHT).getKeyFrame(stateTime, true);
 	    }else{
-	        currentFrame = idleAnimationLeft.getKeyFrame(stateTime, true);
+	        //currentFrame = idleAnimationLeft.getKeyFrame(stateTime, true);
+	    	currentFrame = animations.get(CategoryAnimations.IDLE_LEFT).getKeyFrame(stateTime, true);
 	    }
+	    
+        //currentFrame = idleAnimationRight.getKeyFrame(stateTime, true);
+
 
         Vector3 vector = new Vector3(position.x - (sprite.width), position.y - (sprite.height), 0);
         camera.project(vector);
@@ -257,113 +316,113 @@ public class CharacterController extends InputAdapter {
      */
     private void keyHandler(SpriteBatch batch, float deltaTime) {
             
-            Vector2 vel = charBody.getLinearVelocity(); //get the current linear Vel
+    	Vector2 vel = charBody.getLinearVelocity(); //get the current linear Vel
             
-            // sets the move states
-            if(Gdx.input.isKeyPressed(Keys.A)) {
-                    moveState = MoveStates.MS_LEFT;
-                    facingRight = false;
-                    vel.x = -MAX_VELOCITY;
-                    if(isGrounded) {
-                            if(Gdx.input.isKeyPressed(Keys.W)) {
-                                    jump = true;
-                                    moveState = MoveStates.MS_JUMP;
-                                    vel.y = impulse;
-                                    if(Gdx.input.isKeyPressed(Keys.SPACE)) {
-                                            moveState = MoveStates.MS_ATTACK;
-                                    }
-                            }
+        // sets the move states
+        if(Gdx.input.isKeyPressed(Keys.A)) {
+            moveState = MoveStates.MS_LEFT;
+            facingRight = false;
+            vel.x = -MAX_VELOCITY;
+            if(isGrounded) {
+                if(Gdx.input.isKeyPressed(Keys.W)) {
+                    jump = true;
+                    moveState = MoveStates.MS_JUMP;
+                    vel.y = impulse;
+                    if(Gdx.input.isKeyPressed(Keys.SPACE)) {
+                        moveState = MoveStates.MS_ATTACK;
                     }
-            }else if(Gdx.input.isKeyPressed(Keys.D)) {
-                    moveState = MoveStates.MS_RIGHT;
-                    facingRight = true;
-                    vel.x = MAX_VELOCITY;
-                    if(isGrounded) {
-                            if(Gdx.input.isKeyPressed(Keys.W)) {
-                                    jump = true;
-                                    moveState = MoveStates.MS_JUMP;
-                                    vel.y = impulse;
-                                    if(Gdx.input.isKeyPressed(Keys.SPACE)) {
-                                            moveState = MoveStates.MS_ATTACK;
-                                    }
-                            }
-                    }
-            }else if(Gdx.input.isKeyPressed(Keys.W)){
-                    if(isGrounded) {
-                            moveState = MoveStates.MS_JUMP;
-                            jump = true;
-                            vel.y = impulse;
-                    }
-            }else{
-                    moveState = MoveStates.MS_STOP;
-                    vel.x = 0;
+                }
             }
-            
-            if(Gdx.input.isKeyPressed(Keys.SPACE)) {
-                    moveState = MoveStates.MS_ATTACK;
-                    if(!jump)
-                            vel.x = 0;
+        }else if(Gdx.input.isKeyPressed(Keys.D)) {
+            moveState = MoveStates.MS_RIGHT;
+            facingRight = true;
+            vel.x = MAX_VELOCITY;
+            if(isGrounded) {
+                if(Gdx.input.isKeyPressed(Keys.W)) {
+                    jump = true;
+                    moveState = MoveStates.MS_JUMP;
+                    vel.y = impulse;
+                    if(Gdx.input.isKeyPressed(Keys.SPACE)) {
+                        moveState = MoveStates.MS_ATTACK;
+                    }
+                }
             }
+        }else if(Gdx.input.isKeyPressed(Keys.W)){
+            if(isGrounded) {
+                moveState = MoveStates.MS_JUMP;
+                jump = true;
+                vel.y = impulse;
+            }
+        }else{
+            moveState = MoveStates.MS_STOP;
+            vel.x = 0;
+        }
+        
+        if(Gdx.input.isKeyPressed(Keys.SPACE)) {
+            moveState = MoveStates.MS_ATTACK;
+            if(!jump)
+            	vel.x = 0;
+        }
 
-            charBody.setLinearVelocity( vel ); //applies the new linear vel        
-            sprite.setPosition(new Vector2(charBody.getPosition().x - ( sprite.width / 2 ), charBody.getPosition().y - ( sprite.height / 2)));
-            position = charBody.getPosition();
-                            
-            charBody.setAwake(true);
-            
-            //displays key state in debug mode
-            if (debugMode) {
-                    if (jump)
-                            font.setColor(Color.GREEN);
-                    else
-                            font.setColor(Color.WHITE);
-                    font.draw(batch,"[up]",Gdx.graphics.getWidth() - 80, 50);
-                    
-                    if (moveState.equals(MoveStates.MS_LEFT))
-                            font.setColor(Color.GREEN);
-                    else
-                            font.setColor(Color.WHITE);
-                    font.draw(batch,"[left]",Gdx.graphics.getWidth() - 110, 30);
-                    
-                    if (moveState.equals(MoveStates.MS_RIGHT))
-                            font.setColor(Color.GREEN);
-                    else
-                            font.setColor(Color.WHITE);
-                    font.draw(batch,"[right]", Gdx.graphics.getWidth() - 50, 30);
-            
-                    if (moveState.equals(MoveStates.MS_ATTACK))
-                            font.setColor(Color.GREEN);
-                    else
-                            font.setColor(Color.WHITE);
-                    font.draw(batch,"[attack]", Gdx.graphics.getWidth() - 200, 30);
-                    
+        charBody.setLinearVelocity( vel ); //applies the new linear vel        
+        sprite.setPosition(new Vector2(charBody.getPosition().x - ( sprite.width / 2 ), charBody.getPosition().y - ( sprite.height / 2)));
+        position = charBody.getPosition();
+                        
+        charBody.setAwake(true);
+        
+        //displays key state in debug mode
+        if (debugMode) {
+            if (jump)
+                    font.setColor(Color.GREEN);
+            else
                     font.setColor(Color.WHITE);
-                    font.draw(batch, "[facing ", Gdx.graphics.getWidth() - 200, 50);
-                    if (facingRight)
-                            font.draw(batch, "right]", Gdx.graphics.getWidth() - 155, 50);
-                    else
-                            font.draw(batch, "left]", Gdx.graphics.getWidth() - 155, 50);
+            font.draw(batch,"[up]",Gdx.graphics.getWidth() - 80, 50);
+            
+            if (moveState.equals(MoveStates.MS_LEFT))
+                    font.setColor(Color.GREEN);
+            else
+                    font.setColor(Color.WHITE);
+            font.draw(batch,"[left]",Gdx.graphics.getWidth() - 110, 30);
+            
+            if (moveState.equals(MoveStates.MS_RIGHT))
+                    font.setColor(Color.GREEN);
+            else
+                    font.setColor(Color.WHITE);
+            font.draw(batch,"[right]", Gdx.graphics.getWidth() - 50, 30);
+    
+            if (moveState.equals(MoveStates.MS_ATTACK))
+                    font.setColor(Color.GREEN);
+            else
+                    font.setColor(Color.WHITE);
+            font.draw(batch,"[attack]", Gdx.graphics.getWidth() - 200, 30);
+            
+            font.setColor(Color.WHITE);
+            font.draw(batch, "[facing ", Gdx.graphics.getWidth() - 200, 50);
+            if (facingRight)
+                    font.draw(batch, "right]", Gdx.graphics.getWidth() - 155, 50);
+            else
+                    font.draw(batch, "left]", Gdx.graphics.getWidth() - 155, 50);
 
-                    if (tempAttack == 0) {
-                    	font.setColor(Color.GREEN);
-                    	font.draw(batch, "SHOOT", 10, 45);
-                    }else{
-                    	font.setColor(Color.WHITE);
-                    	font.draw(batch, "Reloading.. " + (attackDelta - tempAttack), 10, 45);
-                    }
-                	font.setColor(Color.WHITE);
-                    font.draw(batch, "[" + (int) position.x + "," + (int) position.y + "]", Gdx.graphics.getWidth() - 81, 30);
+            if (tempAttack == 0) {
+            	font.setColor(Color.GREEN);
+            	font.draw(batch, "SHOOT", 10, 45);
+            }else{
+            	font.setColor(Color.WHITE);
+            	font.draw(batch, "Reloading.. " + (attackDelta - tempAttack), 10, 45);
             }
+        	font.setColor(Color.WHITE);
+            font.draw(batch, "[" + (int) position.x + "," + (int) position.y + "]", Gdx.graphics.getWidth() - 81, 30);
+        }
     }
     
     /**
      * Checks when the character falls from the screen.
      */
     private void deadHandler() {
-            if ( position.y < 1) {
-                    moveState = MoveStates.MS_STOP;
-                    charBody.setTransform(RESPAWN, 0);
-            }
+        if ( position.y < 1) {
+            moveState = MoveStates.MS_STOP;
+            charBody.setTransform(RESPAWN, 0);
+        }
     }
     
     /**
@@ -440,7 +499,6 @@ public class CharacterController extends InputAdapter {
 
     
     public void beginContact(Contact contact) {
-    	//System.out.println("contactA:" + contact.getFixtureA().getFilterData().categoryBits + " contactB:" + contact.getFixtureB().getFilterData().categoryBits);
         if ((contact.getFixtureA().getFilterData().categoryBits == CategoryGroup.CHARACTER_FEET)
         		&&(contact.getFixtureB().getFilterData().categoryBits == CategoryGroup.GROUND)) {                                
             isGrounded = true;

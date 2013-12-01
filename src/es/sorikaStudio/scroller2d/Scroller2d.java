@@ -40,7 +40,7 @@ public class Scroller2d implements ApplicationListener {
 	
 	private Box2DDebugRenderer debugRenderer;
 	private boolean debugState = true;
-	private float unitScale = 32f;
+	private static float unitScale = 32f;
 	
 	private SpriteBatch batch;
 	private TiledMapRenderer tiledMapRenderer;
@@ -75,7 +75,7 @@ public class Scroller2d implements ApplicationListener {
 		worldController = WorldController.getInstance();
 		world = worldController.getWorld();	
 		characterController = CharacterController.getInstance();
-		characterController.initController(debugState, RESPAWN, camera, unitScale, RESPAWN);
+		characterController.initController(debugState, RESPAWN, camera, RESPAWN);
 		
 	    collisionListener = new CollisionListener(); //collision listener class
 	    world.setContactListener(collisionListener);
@@ -179,4 +179,7 @@ public class Scroller2d implements ApplicationListener {
 	public void resume() {
 	}
 	
+	public static float getScale() {
+		return unitScale;
+	}
 }

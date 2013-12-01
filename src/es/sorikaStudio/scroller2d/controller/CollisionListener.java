@@ -14,6 +14,7 @@ public class CollisionListener implements ContactListener {
 
         @Override
         public void beginContact(Contact contact) {
+        	//System.out.println("contactA:" + contact.getFixtureA().getFilterData().categoryBits + " contactB:" + contact.getFixtureB().getFilterData().categoryBits);
         	CharacterController.getInstance().beginContact(contact);
 
         }
